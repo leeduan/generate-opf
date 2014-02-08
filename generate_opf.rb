@@ -1,4 +1,24 @@
-require 'pry'
+# The MIT License (MIT)
+
+# Copyright (c) 2014 Lee Duan
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+# THE SOFTWARE.
 
 class GenerateOpf
   attr_accessor :dir, :opf_file, :book_title, :book_isbn,
@@ -16,7 +36,9 @@ class GenerateOpf
 
   def run
     @opf_file_path = create_new_opf_file
+    request_metadata
     write_header
+    write_images
     write_css
     write_fonts
     write_javascript
@@ -25,31 +47,51 @@ class GenerateOpf
     write_text
     write_toc
     write_spine
+    puts '=> Successfully generated the OPF file.'
   end
 
   private
 
+  def request_metadata
+    puts "=> What is the book's title?"
+    @book_title = gets.chomp
+
+    puts "=> What is the book's ISBN or eISBN?"
+    @book_isbn = gets.chomp
+
+    puts "=> Who is the publisher?"
+    @book_publisher = gets.chomp
+
+    puts "=> Who are the creator(s) or author(s)?"
+    @book_creator = gets.chomp
+
+    puts "=> Who are the contributor(s)?"
+    @book_contributor = gets.chomp
+  end
+
   def create_new_opf_file
     if !File.exist? 'content.opf'
       File.new('content.opf', 'w+').close
-      @opf_file_path = 'content.opf'
+      'content.opf'
     else
-      @opf_file_path = iterate_opf_file
+      increment_if_existing_opf
     end
   end
 
-  def iterate_opf_file
+  def increment_if_existing_opf
     name = 'content'
     index = 1
+
     while File.exist? "#{name}-#{index}.opf"
       index+=1
     end
+
     File.new("#{name}-#{index}.opf", 'w+').close
-    @opf_file_path = "#{name}-#{index}.opf"
+    "#{name}-#{index}.opf"
   end
 
   def write_header
-    header =
+    manifest_header =
 "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>
 <package xmlns=\"http://www.idpf.org/2007/opf\" unique-identifier=\"ISBN\" version=\"3.0\">
   <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">
@@ -58,146 +100,164 @@ class GenerateOpf
     <dc:publisher>#{@book_publisher.to_s}</dc:publisher>
     <dc:creator>#{@book_creator.to_s}</dc:creator>
     <dc:contributor>#{@book_contributor.to_s}</dc:contributor>
-    <dc:language>en-US</dc:language>
+    <dc:language>en</dc:language>
     <meta property=\"dcterms:modified\">#{Time.now.to_s.split(' ')[0..1].join('T')}Z</meta>
   </metadata>
   <manifest>
 "
     File.open(@opf_file_path, 'w') do |f|
-      f.write(header)
+      f.write(manifest_header)
+    end
+  end
+
+  def write_images
+    image_paths = relative_path(Dir["#{@dir}/**/*.{jpg,jpeg,png,gif,svg}"])
+
+    File.open(@opf_file_path, 'a') do |f|
+      f.puts("    <!-- images -->")
+
+      image_paths.each do |image_path|
+        f.puts("    <item id=\"#{replace_id_chars(image_path)}\" href=\"#{image_path}\" " +
+          "media-type=\"#{media_type_conversion(image_path)}\" />")
+      end
+      f.puts("\n")
     end
   end
 
   def write_css
-    images = Dir["#{@dir}/**/*.{jpg,jpeg,png,gif,svg}"]
-    images.map!{ |image| image.split('OPS/').last }
+    css_paths = relative_path(Dir["#{@dir}/**/*.{css}"])
+
     File.open(@opf_file_path, 'a') do |f|
-      f.puts("    <!-- images -->")
-      images.each do |image|
-        media_type = media_type_conversion(File.extname(image).sub('.',''))
-        f.puts("    <item id=\"#{image.gsub(/\//, '-').gsub(/ /, '-')}\" href=\"#{image}\" media-type=\"#{media_type}\">")
+      f.puts("    <!-- css -->")
+
+      css_paths.each do |css_path|
+        f.puts("    <item id=\"#{replace_id_chars(css_path)}\" href=\"#{css_path}\" " +
+          "media-type=\"#{media_type_conversion(css_path)}\" />")
       end
       f.puts("\n")
     end
   end
 
   def write_fonts
-    fonts = Dir["#{@dir}/**/*.{ttf,otf,eot,woff}"]
-    fonts.map!{ |font| font.split('OPS/').last }
+    font_paths = relative_path(Dir["#{@dir}/**/*.{ttf,otf,eot,woff}"])
+
     File.open(@opf_file_path, 'a') do |f|
       f.puts("    <!-- fonts -->")
-      fonts.each do |font|
-        media_type = media_type_conversion(File.extname(font).sub('.',''))
-        f.puts("    <item id=\"#{font.gsub(/\//, '-').gsub(/ /, '-')}\" href=\"#{font}\" media-type=\"#{media_type}\">")
+
+      font_paths.each do |font_path|
+        f.puts("    <item id=\"#{replace_id_chars(font_path)}\" href=\"#{font_path}\" " +
+          "media-type=\"#{media_type_conversion(font_path)}\" />")
       end
       f.puts("\n")
     end
   end
 
   def write_javascript
-    javascripts = Dir["#{@dir}/**/*.{js}"]
-    javascripts.map!{ |javascript| javascript.split('OPS/').last }
+    js_paths = relative_path(Dir["#{@dir}/**/*.{js}"])
+
     File.open(@opf_file_path, 'a') do |f|
       f.puts("    <!-- javascript -->")
-      javascripts.each do |javascript|
-        media_type = media_type_conversion(File.extname(javascript).sub('.',''))
-        f.puts("    <item id=\"#{javascript.gsub(/\//, '-').gsub(/ /, '-')}\" href=\"#{javascript}\" media-type=\"#{media_type}\">")
+
+      js_paths.each do |js_path|
+        f.puts("    <item id=\"#{replace_id_chars(js_path)}\" href=\"#{js_path}\" " +
+          "media-type=\"#{media_type_conversion(js_path)}\" />")
       end
       f.puts("\n")
     end
   end
 
   def write_video
-    texts = Dir["#{@dir}/**/*.{html,xhtml}"]
-    texts.map!{ |text| text.split('OPS/').last }
-    absolute_videos = []
-    texts.each do |text|
-      File.open(text, 'r').each_line do |line|
-        matches = line.scan(/src="http.+\.mp4"|src="http.+\.m4v"/)
-        if matches.count > 0
-          matches.map! { |match| match.chomp('"').sub('src="','') }
-          absolute_videos.concat(matches)
+    external_videos_path = []
+
+    text_paths = relative_path(Dir["#{@dir}/**/*.{html,xhtml}"]).each do |text_path|
+
+      File.open(text_path, 'r').each_line do |line|
+        url_paths = line.scan(/src="http.+\.mp4"|src="http.+\.m4v"/)
+
+        if url_paths.count > 0
+          url_paths.map! { |path| path.chomp('"').sub('src="','') }
+          external_videos_path.concat(url_paths)
         end
       end
     end
-    videos = Dir["#{@dir}/**/*.{mp4,m4v}"]
-    videos.map!{ |video| video.split('OPS/').last }
+
+    videos_path = relative_path(Dir["#{@dir}/**/*.{mp4,m4v}"])
+
     File.open(@opf_file_path, 'a') do |f|
       f.puts("    <!-- videos -->")
-      videos.each do |video|
-        media_type = media_type_conversion(File.extname(video).sub('.',''))
-        f.puts("    <item id=\"#{video.gsub(/\//, '-').gsub(/ /, '-')}\" href=\"#{video}\" media-type=\"#{media_type}\">")
+
+      videos_path.each do |video_path|
+        f.puts("    <item id=\"#{replace_id_chars(video_path)}\" href=\"#{video_path}\" " +
+          "media-type=\"#{media_type_conversion(video_path)}\" />")
       end
-      absolute_videos.each_with_index do |video, index|
-        ext = File.extname(video).sub('.','')
-        media_type = media_type_conversion(ext)
-        f.puts("    <item id=\"external-video-url-#{ext}-#{index+1}\" href=\"#{video}\" media-type=\"#{media_type}\">")
+
+      external_videos_path.each_with_index do |video_path, index|
+        f.puts("    <item id=\"external-video-#{File.extname(video_path).sub('.','')}-#{index+1}\" " +
+          "href=\"#{video_path}\" media-type=\"#{media_type_conversion(video_path)}\" />")
       end
       f.puts("\n")
     end
   end
 
   def write_audio
-    texts = Dir["#{@dir}/**/*.{html,xhtml}"]
-    texts.map!{ |text| text.split('OPS/').last }
-    absolute_audios = []
-    texts.each do |text|
-      File.open(text, 'r').each_line do |line|
-        matches = line.scan(/src="http.+\.mp3"|src="http.+\.m4a"/)
-        if matches.count > 0
-          matches.map! { |match| match.chomp('"').sub('src="','') }
-          absolute_audios.concat(matches)
+    external_audios_path = []
+
+    text_paths = relative_path(Dir["#{@dir}/**/*.{html,xhtml}"]).each do |text_path|
+
+      File.open(text_path, 'r').each_line do |line|
+        url_paths = line.scan(/src="http.+\.mp3"|src="http.+\.m4a"/)
+
+        if url_paths.count > 0
+          url_paths.map! { |match| match.chomp('"').sub('src="','') }
+          external_audios_path.concat(url_paths)
         end
       end
     end
-    audios = Dir["#{@dir}/**/*.{m4a,mp3}"]
-    audios.map!{ |audio| audio.split('OPS/').last }
+
+    audios_path = relative_path(Dir["#{@dir}/**/*.{m4a,mp3}"])
+
     File.open(@opf_file_path, 'a') do |f|
       f.puts("    <!-- audio -->")
-      audios.each do |audio|
-        media_type = media_type_conversion(File.extname(audio).sub('.',''))
-        f.puts("    <item id=\"#{audio.gsub(/\//, '-').gsub(/ /, '-')}\" href=\"#{audio}\" media-type=\"#{media_type}\">")
+
+      audios_path.each do |audio_path|
+        f.puts("    <item id=\"#{replace_id_chars(audio_path)}\" href=\"#{audio_path}\" " +
+          "media-type=\"#{media_type_conversion(audio_path)}\" />")
       end
-      absolute_audios.each_with_index do |audio, index|
-        ext = File.extname(audio).sub('.','')
-        media_type = media_type_conversion(ext)
-        f.puts("    <item id=\"external-audio-url-#{ext}-#{index+1}\" href=\"#{audio}\" media-type=\"#{media_type}\">")
+
+      external_audios_path.each_with_index do |audio_path, index|
+        f.puts("    <item id=\"external-audio-url-#{File.extname(audio_path).sub('.','')}-#{index+1}\" " +
+          "href=\"#{audio_path}\" media-type=\"#{media_type_conversion(audio_path)}\" />")
       end
       f.puts("\n")
     end
   end
 
   def write_text
-    texts = Dir["#{@dir}/**/*.{html,xhtml}"]
-    texts.map! do |text|
-      text = text.split('OPS/').last
-      javascript_exists = nil
+    text_paths = Dir["#{@dir}/**/*.{html,xhtml}"]
+
+    text_paths_with_options = relative_path(Dir["#{@dir}/**/*.{html,xhtml}"]).map! do |text_path|
+      javascripts_exist = nil
       external_resources_exist = nil
-      File.open(text, 'r').each_line do |line|
-        unless javascript_exists
-          javascript_exists = true if line.scan(/text\/javascript/).count > 0
+
+      File.open(text_path, 'r').each_line do |line|
+        unless javascripts_exist
+          javascripts_exist = true if line.scan(/text\/javascript/).count > 0
         end
+
         unless external_resources_exist
           external_resources_exist = true if line.scan(/src="http/).count > 0
         end
       end
-      [text, javascript_exists, external_resources_exist]
+      [text_path, javascripts_exist, external_resources_exist]
     end
+
     File.open(@opf_file_path, 'a') do |f|
       f.puts("    <!-- text -->")
-      texts.each do |text|
-        unless text =~ /toc.xhtml/
-          media_type = media_type_conversion(File.extname(text[0]).sub('.',''))
-          if text[1] && text[2]
-            properties = 'properties="scripted remote-resources" '
-          elsif text[1]
-            properties = 'properties="scripted" '
-          elsif text[2]
-            properties = 'properties="remote-resources" '
-          else
-            properties = ''
-          end
-          f.puts("    <item id=\"#{text[0].gsub(/\//, '-').gsub(/ /, '-')}\" #{properties}href=\"#{text[0]}\" media-type=\"#{media_type}\">")
+
+      text_paths_with_options.each do |text_with_options|
+        unless text_with_options[0] =~ /toc.xhtml/
+          f.puts("    <item id=\"#{replace_id_chars(text_with_options[0])}\" #{text_properties(text_with_options)}" +
+            "href=\"#{text_with_options[0]}\" media-type=\"#{media_type_conversion(text_with_options[0])}\" />")
         end
       end
       f.puts("\n")
@@ -205,15 +265,39 @@ class GenerateOpf
   end
 
   def write_toc
+    toc = relative_path(Dir["#{@dir}/**/*toc.xhtml"]).last
+    ncx = relative_path(Dir["#{@dir}/**/*.ncx"]).last
 
+    if toc || ncx
+      File.open(@opf_file_path, 'a') do |f|
+        f.puts("    <!-- toc -->")
+        f.puts("    <item id=\"#{replace_id_chars(toc)}\" properties=\"nav\" " +
+          "href=\"#{toc}\" media-type=\"application/xhtml+xml\" />") if toc
+        f.puts("    <item id=\"#{replace_id_chars(ncx)}\" " +
+          " href=\"#{ncx}\" media-type=\"application/x-dtbncx+xml\" />") if ncx
+        f.puts("  </manifest>")
+        f.puts("\n")
+        f.puts("  <spine#{' toc="' + replace_id_chars(ncx) + '"' if ncx}>")
+      end
+    end
   end
 
   def write_spine
+    main_texts_path = relative_path(Dir["#{@dir}/*.xhtml"])
+    main_texts_path.concat(relative_path(Dir["#{@dir}/*/*.xhtml"])).reject!{ |text_path| text_path =~ /toc.xhtml/ }
 
+    File.open(@opf_file_path, 'a') do |f|
+      main_texts_path.each do |text_path|
+        f.puts("    <itemref idref=\"#{replace_id_chars(text_path)}\" />")
+      end
+      f.puts("  </spine>")
+      f.puts("</package>")
+    end
   end
 
-  def media_type_conversion(ext)
-    extension_match = {
+  def media_type_conversion(file_name)
+    extension_name = File.extname(file_name).sub('.','')
+    media_types = {
       jpg:   'image/jpeg',
       jpeg:  'image/jpeg',
       png:   'image/png',
@@ -228,11 +312,33 @@ class GenerateOpf
       mp4:   'video/mp4',
       xhtml: 'application/xhtml+xml',
       html:  'text/html',
+      css:   'text/css',
       mp3:   'audio/mpeg',
       m4a:   'audio/mpeg',
       ncx:   'application/x-dtbncx+xml'
     }
-    extension_match[ext.to_sym]
+    media_types[extension_name.to_sym]
+  end
+
+  def relative_path(path_matches)
+    path_matches.map{ |path_match| path_match.split('OPS/').last }
+  end
+
+  def replace_id_chars(str)
+    str.gsub(/\/| |\./, '-')
+  end
+
+  def text_properties(options)
+    return '' if File.extname(options[0]) =~ /\.html/
+    if options[1] && options[2]
+      properties = 'properties="scripted remote-resources" '
+    elsif options[1]
+      properties = 'properties="scripted" '
+    elsif options[2]
+      properties = 'properties="remote-resources" '
+    else
+      properties = ''
+    end
   end
 end
 
