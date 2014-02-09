@@ -312,7 +312,6 @@ class GenerateOpf
         end
       end
     end
-
     urlArray
   end
 
@@ -330,7 +329,6 @@ class GenerateOpf
           external_resources_exist = true if line.scan(/src="http/).count > 0
         end
       end
-
       {path: text_path, javascript: javascripts_exist, resources: external_resources_exist}
     end
   end
