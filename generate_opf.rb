@@ -212,7 +212,9 @@ class GenerateOpf
   def write_text
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- text -->")
-      text_file_properties.each{ |text_hash| f.puts(item_line_output(text_hash, true)) unless text_hash[:path] =~ /toc.xhtml/ }
+      text_file_properties.each do |text_hash|
+        f.puts(item_line_output(text_hash, true)) unless text_hash[:path] =~ /toc.xhtml/
+      end
       f.puts("\n")
     end
   end
@@ -235,7 +237,8 @@ class GenerateOpf
 
   def write_spine
     main_texts_path = relative_path(Dir["#{current_directory}/*.xhtml"])
-    main_texts_path.concat(relative_path(Dir["#{current_directory}/*/*.xhtml"])).reject!{ |text_path| text_path =~ /toc.xhtml/ }
+    main_texts_path.concat(relative_path(Dir["#{current_directory}/*/*.xhtml"]))
+      .reject!{ |text_path| text_path =~ /toc.xhtml/ }
 
     File.open(opf_file_path, 'a') do |f|
       main_texts_path.each{ |text_path| f.puts("    <itemref idref=\"#{replace_id_chars(text_path)}\" />") }
