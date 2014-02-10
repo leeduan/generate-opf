@@ -57,6 +57,8 @@ class GenerateOpf
 
   private
 
+  # Define book metadata methods
+
   def request_metadata
     puts '=> What is the book\'s title?'
     self.book_title = gets.chomp
@@ -73,6 +75,8 @@ class GenerateOpf
     puts '=> Who are the contributor(s)?'
     self.book_contributor = gets.chomp
   end
+
+  # Define OPF file methods
 
   def get_opf_name
     container_xml_path = File.expand_path('../META-INF/container.xml')
@@ -109,6 +113,8 @@ class GenerateOpf
     self.opf_file_path = "#{filename_without_extension}-#{increment}.opf"
   end
 
+  # Write to OPF methods
+
   def write_header
     manifest_header =
 "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>
@@ -134,11 +140,7 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- images -->")
-
-      images_path.each do |image_path|
-        f.puts("    <item id=\"#{replace_id_chars(image_path)}\" href=\"#{image_path}\" " +
-          "media-type=\"#{media_type_conversion(image_path)}\" />")
-      end
+      images_path.each{ |image_path| f.puts(item_line_output(image_path)) }
       f.puts("\n")
     end
   end
@@ -148,11 +150,7 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- css -->")
-
-      css_paths.each do |css_path|
-        f.puts("    <item id=\"#{replace_id_chars(css_path)}\" href=\"#{css_path}\" " +
-          "media-type=\"#{media_type_conversion(css_path)}\" />")
-      end
+      css_paths.each{ |css_path| f.puts(item_line_output(css_path)) }
       f.puts("\n")
     end
   end
@@ -162,11 +160,7 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- fonts -->")
-
-      fonts_path.each do |font_path|
-        f.puts("    <item id=\"#{replace_id_chars(font_path)}\" href=\"#{font_path}\" " +
-          "media-type=\"#{media_type_conversion(font_path)}\" />")
-      end
+      fonts_path.each{ |font_path| f.puts(item_line_output(font_path)) }
       f.puts("\n")
     end
   end
@@ -176,11 +170,7 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- javascript -->")
-
-      js_paths.each do |js_path|
-        f.puts("    <item id=\"#{replace_id_chars(js_path)}\" href=\"#{js_path}\" " +
-          "media-type=\"#{media_type_conversion(js_path)}\" />")
-      end
+      js_paths.each{ |js_path| f.puts(item_line_output(js_path)) }
       f.puts("\n")
     end
   end
@@ -191,16 +181,8 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- videos -->")
-
-      videos_path.each do |video_path|
-        f.puts("    <item id=\"#{replace_id_chars(video_path)}\" href=\"#{video_path}\" " +
-          "media-type=\"#{media_type_conversion(video_path)}\" />")
-      end
-
-      external_videos_path.each_with_index do |video_path, index|
-        f.puts("    <item id=\"external-video-#{File.extname(video_path).sub('.','')}-#{index+1}\" " +
-          "href=\"#{video_path}\" media-type=\"#{media_type_conversion(video_path)}\" />")
-      end
+      videos_path.each{ |video_path| f.puts(item_line_output(video_path)) }
+      external_videos_path.each{ |video_path| f.puts(item_line_output(video_path)) }
       f.puts("\n")
     end
   end
@@ -211,16 +193,8 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- audio -->")
-
-      audios_path.each do |audio_path|
-        f.puts("    <item id=\"#{replace_id_chars(audio_path)}\" href=\"#{audio_path}\" " +
-          "media-type=\"#{media_type_conversion(audio_path)}\" />")
-      end
-
-      external_audios_path.each_with_index do |audio_path, index|
-        f.puts("    <item id=\"external-audio-url-#{File.extname(audio_path).sub('.','')}-#{index+1}\" " +
-          "href=\"#{audio_path}\" media-type=\"#{media_type_conversion(audio_path)}\" />")
-      end
+      audios_path.each{ |audio_path| f.puts(item_line_output(audio_path)) }
+      external_audios_path.each{ |audio_path| f.puts(item_line_output(audio_path)) }
       f.puts("\n")
     end
   end
@@ -230,58 +204,41 @@ class GenerateOpf
 
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- html -->")
-
-      html_paths.each do |html_path|
-        f.puts("    <item id=\"#{replace_id_chars(html_path)}\" href=\"#{html_path}\" " +
-          "media-type=\"#{media_type_conversion(html_path)}\" />")
-      end
+      html_paths.each{ |html_path| f.puts(item_line_output(html_path)) }
       f.puts("\n")
     end
   end
 
   def write_text
-    text_paths_with_options = text_properties
-
     File.open(opf_file_path, 'a') do |f|
       f.puts("    <!-- text -->")
-
-      text_paths_with_options.each do |text_file|
-        unless text_file[:path] =~ /toc.xhtml/
-          f.puts("    <item id=\"#{replace_id_chars(text_file[:path])}\" #{text_properties_output(text_file)}" +
-            "href=\"#{text_file[:path]}\" media-type=\"#{media_type_conversion(text_file[:path])}\" />")
-        end
-      end
+      text_file_properties.each{ |text_hash| f.puts(item_line_output(text_hash, true)) unless text_hash[:path] =~ /toc.xhtml/ }
       f.puts("\n")
     end
   end
 
   def write_toc
-    toc = relative_path(Dir["#{current_directory}/**/*toc.xhtml"]).last
-    ncx = relative_path(Dir["#{current_directory}/**/*.ncx"]).last
+    toc_path = relative_path(Dir["#{current_directory}/**/*toc.xhtml"]).last
+    ncx_path = relative_path(Dir["#{current_directory}/**/*.ncx"]).last
 
-    if toc || ncx
+    if toc_path || ncx_path
       File.open(opf_file_path, 'a') do |f|
         f.puts("    <!-- toc -->")
-        f.puts("    <item id=\"#{replace_id_chars(toc)}\" properties=\"nav\" " +
-          "href=\"#{toc}\" media-type=\"application/xhtml+xml\" />") if toc
-        f.puts("    <item id=\"#{replace_id_chars(ncx)}\" " +
-          " href=\"#{ncx}\" media-type=\"application/x-dtbncx+xml\" />") if ncx
+        f.puts(item_line_output(toc_path).sub('media-type=', 'properties="nav" media-type=')) if toc_path
+        f.puts(item_line_output(ncx_path)) if ncx_path
         f.puts("  </manifest>")
         f.puts("\n")
-        f.puts("  <spine#{' toc="' + replace_id_chars(ncx) + '"' if ncx}>")
+        f.puts("  <spine#{' toc="' + replace_id_chars(ncx_path) + '"' if ncx_path}>")
       end
     end
   end
 
   def write_spine
     main_texts_path = relative_path(Dir["#{current_directory}/*.xhtml"])
-    main_texts_path.concat(relative_path(Dir["#{current_directory}/*/*.xhtml"]))
-      .reject!{ |text_path| text_path =~ /toc.xhtml/ }
+    main_texts_path.concat(relative_path(Dir["#{current_directory}/*/*.xhtml"])).reject!{ |text_path| text_path =~ /toc.xhtml/ }
 
     File.open(opf_file_path, 'a') do |f|
-      main_texts_path.each do |text_path|
-        f.puts("    <itemref idref=\"#{replace_id_chars(text_path)}\" />")
-      end
+      main_texts_path.each{ |text_path| f.puts("    <itemref idref=\"#{replace_id_chars(text_path)}\" />") }
       f.puts("  </spine>")
       f.puts("</package>")
     end
@@ -291,16 +248,31 @@ class GenerateOpf
     puts "=> SUCCESS: generated #{opf_file_path} file."
   end
 
+  # Helper methods
+
   def relative_path(path_matches)
     path_matches.map{ |path_match| path_match.split(OPEN_PUBLICATION_STRUCTURE).last }
   end
 
+  def item_line_output(item, properties=nil)
+    item_id = properties ? replace_id_chars(item[:path]) : replace_id_chars(item)
+    item_href = properties ? item[:path] : item
+    item_media_type = properties ? media_type_conversion(item[:path]) : media_type_conversion(item)
+    item_properties = properties ? text_properties_output(item) : ''
+    "    <item id=\"#{item_id}\" href=\"#{item_href}\" #{item_properties}media-type=\"#{item_media_type}\" />"
+  end
+
   def replace_id_chars(str)
-    str.gsub(/\/| |\@|\&|\!|\#|\$|\%|\^|\*|\~|\./, '-')
+    remove_character_list = /\/| |\@|\&|\!|\#|\$|\%|\^|\*|\~|\./
+    if str[0..6].match(/http:\/\/|https:\//)
+      str.sub(/(http:\/\/)*.*?\.\w{2,3}\//,"").gsub(remove_character_list, '-')
+    else
+      str.gsub(remove_character_list, '-')
+    end
   end
 
   def external_resources_search(regex)
-    urlArray = []
+    url_array = []
 
     text_paths = relative_path(Dir["#{current_directory}/**/*.{xhtml}"]).each do |text_path|
       File.open(text_path, 'r').each_line do |line|
@@ -308,29 +280,28 @@ class GenerateOpf
 
         if url_paths.count > 0
           url_paths.map! { |path| path.chomp('"').sub('src="','') }
-          urlArray.concat(url_paths)
+          url_array.concat(url_paths)
         end
       end
     end
-    urlArray
+    url_array
   end
 
-  def text_properties
+  def text_file_properties
     relative_path(Dir["#{current_directory}/**/*.{xhtml}"]).map do |text_path|
       javascripts_exist = nil
       external_resources_exist = nil
 
       File.open(text_path, 'r').each_line do |line|
-        unless javascripts_exist
-          javascripts_exist = true if line.scan(/text\/javascript/).count > 0
-        end
-
-        unless external_resources_exist
-          external_resources_exist = true if line.scan(/src="http/).count > 0
-        end
+        javascripts_exist ||= set_property_exists(line, /text\/javascript/)
+        external_resources_exist ||= set_property_exists(line, /src="http/)
       end
       {path: text_path, javascript: javascripts_exist, resources: external_resources_exist}
     end
+  end
+
+  def set_property_exists(line, regex)
+    true if line.scan(regex).count > 0
   end
 
   def text_properties_output(options)
