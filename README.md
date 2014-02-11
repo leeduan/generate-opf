@@ -6,19 +6,19 @@ Creates an `*.opf` file for your ePub 3.0 e-book by scanning through `OPS` and i
 
 1. Clone the [repository](https://github.com/leeduan/generate-opf.git).
 2. Check that ruby is installed (tested on v2.0.0 and higher).
-```
-    ruby -v
-```
+  ```
+  ruby -v
+  ```
 3. Check that the `container.xml` file located in `META-INF` directory has a full-path specified:
-```
-    <rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml" />
-```
+  ```
+  <rootfile full-path="OPS/content.opf" media-type="application/oebps-package+xml" />
+  ```
 4. `mv` the `generate_opf.rb` file into your ePub's `OPS` directory.
 5. `cd` into your `OPS` directory.
 6. Run the program with the command:
-```
-    ruby generate_opf.rb
-```
+  ```
+  ruby generate_opf.rb
+  ```
 7. `rm` the `generate_opf.rb` file from `OPS` directory.
 8. Reorder spine items if desired e-book order is not in file-name ascending order.
 9. Package up ePub and check for errors using [ePub Checker](https://github.com/IDPF/epubcheck).
