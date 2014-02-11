@@ -99,7 +99,7 @@ class GenerateOpf
     if !File.exist? opf_name
       self.opf_file_path = opf_name
     else
-      add_opf_increment
+      self.opf_file_path = add_opf_increment
     end
   end
 
@@ -110,7 +110,7 @@ class GenerateOpf
     while File.exist? "#{filename_without_extension}-#{increment}.opf"
       increment += 1
     end
-    self.opf_file_path = "#{filename_without_extension}-#{increment}.opf"
+    "#{filename_without_extension}-#{increment}.opf"
   end
 
   # Write to OPF methods
@@ -176,7 +176,7 @@ class GenerateOpf
   end
 
   def write_video
-    videos_path = relative_path(Dir["#{current_directory}/**/*.{mp4,m4v}"])
+    videos_path = relative_path(Dir["#{current_directory}/**/*.{mp4,m4v,mov}"])
     external_videos_path = external_resources_search(/src="http.+\.mp4"|src="http.+\.m4v"|src="http.+\.mov"/)
 
     File.open(opf_file_path, 'a') do |f|
